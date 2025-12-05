@@ -1,3 +1,5 @@
+[file name]: index1.html
+[file content begin]
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -134,26 +136,44 @@ service cloud.firestore {
                         <div class="card-body">
                             <form id="addStudentForm">
                                 <div class="mb-3">
-                                    <label class="form-label">Student Name</label>
+                                    <label class="form-label">Student Name*</label>
                                     <input type="text" class="form-control" id="studentName" required>
                                 </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Course</label>
-                                    <select class="form-select" id="courseName" required>
+                                    <label class="form-label">Father's Name*</label>
+                                    <input type="text" class="form-control" id="fatherName" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Phone Number*</label>
+                                    <input type="tel" class="form-control" id="phoneNumber" pattern="[0-9]{10}" required>
+                                    <small class="text-muted">10-digit phone number</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Course*</label>
+                                    <select class="form-select" id="courseName" required onchange="toggleOtherCourseField()">
                                         <option value="" selected disabled>Select Course</option>
                                         <option value="DCA">DCA</option>
                                         <option value="PGDCA">PGDCA</option>
-                                        <option value="MS-OFFICE">MS-OFFICE</option>
                                         <option value="TALLY+GST">TALLY+GST</option>
-                                        <option value="C++">C++</option>
-                                        <option value="Java">Java</option>
-                                        <option value="Python">Python</option>
-                                        <option value="Web Development">Web Development</option>
-                                        <option value="Data Analytics">Data Analytics</option>
+                                        <option value="C AND C++ PROGRAMMING">C AND C++ PROGRAMMING</option>
+                                        <option value="DATABASES(SQL,ORACLE,MONGODB,MYSQL)">DATABASES (SQL,ORACLE,MONGODB,MYSQL)</option>
+                                        <option value="DATA ANALYTICS">DATA ANALYTICS</option>
+                                        <option value="JAVA PROGRAMMING">JAVA PROGRAMMING</option>
+                                        <option value="PYTHON PROGRAMMING">PYTHON PROGRAMMING</option>
+                                        <option value="WEB DEVELOPMENT">WEB DEVELOPMENT</option>
+                                        <option value="DATA SCIENCE">DATA SCIENCE</option>
+                                        <option value="FULL-STACK DEVELOPMENT">FULL-STACK DEVELOPMENT</option>
+                                        <option value="MS-EXCEL">MS-EXCEL</option>
+                                        <option value="POWER BI">POWER BI</option>
+                                        <option value="OTHERS">OTHERS</option>
                                     </select>
                                 </div>
+                                <div class="mb-3 d-none" id="otherCourseContainer">
+                                    <label class="form-label">Other Course Name*</label>
+                                    <input type="text" class="form-control" id="otherCourseName" placeholder="Enter course name">
+                                </div>
                                 <div class="mb-3">
-                                    <label class="form-label">Total Fee (₹)</label>
+                                    <label class="form-label">Total Fee (₹)*</label>
                                     <input type="number" class="form-control" id="courseFee" min="1" required>
                                 </div>
                                 <div class="mb-3">
@@ -187,6 +207,8 @@ service cloud.firestore {
                                     <thead class="table-light">
                                         <tr>
                                             <th>Name</th>
+                                            <th>Father's Name</th>
+                                            <th>Phone</th>
                                             <th>Course</th>
                                             <th>Total</th>
                                             <th>Paid</th>
@@ -219,7 +241,7 @@ service cloud.firestore {
             <div class="row" id="courseReports"></div>
             <div id="noReport" class="text-center p-5 d-none">
                 <i class="fas fa-chart-bar fa-3x mb-3 text-muted"></i>
-                <p>No data available for reports.</p>
+                                <p>No data available for reports.</p>
             </div>
         </div>
     </div>
@@ -301,6 +323,33 @@ service cloud.firestore {
         }
     };
 
+    // ==================== UTILITY FUNCTIONS ====================
+    function toggleOtherCourseField() {
+        const courseSelect = document.getElementById('courseName');
+        const otherCourseContainer = document.getElementById('otherCourseContainer');
+        const otherCourseInput = document.getElementById('otherCourseName');
+        
+        if (courseSelect.value === 'OTHERS') {
+            otherCourseContainer.classList.remove('d-none');
+            otherCourseInput.required = true;
+        } else {
+            otherCourseContainer.classList.add('d-none');
+            otherCourseInput.required = false;
+            otherCourseInput.value = '';
+        }
+    }
+
+    function showError(elementId, message, clear = false) {
+        const element = document.getElementById(elementId);
+        if (clear || !message) {
+            element.classList.add('d-none');
+            element.innerHTML = '';
+        } else {
+            element.classList.remove('d-none');
+            element.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        }
+    }
+
     // ==================== STUDENT MANAGEMENT ====================
     async function loadStudents() {
         if (!currentUser) return;
@@ -308,6 +357,7 @@ service cloud.firestore {
         try {
             const snapshot = await db.collection('students')
                 .where('userId', '==', currentUser.uid)
+                .orderBy('createdAt', 'desc')
                 .get();
             
             students = [];
@@ -339,12 +389,26 @@ service cloud.firestore {
         }
         
         const name = document.getElementById('studentName').value.trim();
+        const fatherName = document.getElementById('fatherName').value.trim();
+        const phone = document.getElementById('phoneNumber').value.trim();
         const course = document.getElementById('courseName').value;
+        const otherCourse = document.getElementById('otherCourseName').value.trim();
         const total = parseFloat(document.getElementById('courseFee').value);
         const paid = parseFloat(document.getElementById('amountPaid').value) || 0;
         
-        if (!name || !course || !total || total <= 0) {
-            showError('formError', 'Please fill all fields correctly');
+        // Validation
+        if (!name || !fatherName || !phone || !course || !total || total <= 0) {
+            showError('formError', 'Please fill all required fields correctly');
+            return;
+        }
+        
+        if (phone.length !== 10 || !/^\d+$/.test(phone)) {
+            showError('formError', 'Please enter a valid 10-digit phone number');
+            return;
+        }
+        
+        if (course === 'OTHERS' && !otherCourse) {
+            showError('formError', 'Please enter the course name for "Others" option');
             return;
         }
         
@@ -353,20 +417,27 @@ service cloud.firestore {
             return;
         }
         
+        // Determine final course name
+        const finalCourse = course === 'OTHERS' ? otherCourse : course;
+        
         const studentData = {
             userId: currentUser.uid,
             name,
-            course,
+            fatherName,
+            phone,
+            course: finalCourse,
             total,
             paid,
             payments: paid > 0 ? [{ amount: paid, date: new Date().toLocaleDateString() }] : [],
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            originalCourseType: course // Store whether it was "OTHERS" or regular course
         };
         
         try {
             await db.collection('students').add(studentData);
             document.getElementById('addStudentForm').reset();
             document.getElementById('courseName').selectedIndex = 0;
+            document.getElementById('otherCourseContainer').classList.add('d-none');
             showError('formError', '', true); // Clear error
             loadStudents(); // Reload the list
         } catch (error) {
@@ -418,6 +489,8 @@ service cloud.firestore {
             return `
                 <tr>
                     <td><strong>${student.name}</strong></td>
+                    <td>${student.fatherName || 'N/A'}</td>
+                    <td>${student.phone || 'N/A'}</td>
                     <td>${student.course}</td>
                     <td>₹${student.total.toFixed(2)}</td>
                     <td>₹${student.paid.toFixed(2)}</td>
@@ -433,7 +506,7 @@ service cloud.firestore {
                     </td>
                 </tr>
                 <tr class="payment-history bg-light">
-                    <td colspan="7" class="p-3">
+                    <td colspan="9" class="p-3">
                         <small><strong><i class="fas fa-history"></i> Payment History:</strong><br>${history}</small>
                     </td>
                 </tr>
@@ -548,7 +621,7 @@ service cloud.firestore {
         }
         
         const data = [
-            ['Name', 'Course', 'Total Fee', 'Paid', 'Pending', 'Status']
+            ['Name', 'Father\'s Name', 'Phone', 'Course', 'Total Fee', 'Paid', 'Pending', 'Status']
         ];
         
         students.forEach(s => {
@@ -556,6 +629,8 @@ service cloud.firestore {
             const status = pending === 0 ? 'Paid' : (s.paid === 0 ? 'Unpaid' : 'Partial');
             data.push([
                 s.name,
+                s.fatherName || 'N/A',
+                s.phone || 'N/A',
                 s.course,
                 s.total,
                 s.paid,
@@ -570,18 +645,6 @@ service cloud.firestore {
         XLSX.writeFile(wb, `Fee_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
     };
 
-    // ==================== UTILITY FUNCTIONS ====================
-    function showError(elementId, message, clear = false) {
-        const element = document.getElementById(elementId);
-        if (clear || !message) {
-            element.classList.add('d-none');
-            element.innerHTML = '';
-        } else {
-            element.classList.remove('d-none');
-            element.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
-        }
-    }
-
     // Show setup guide if config is not set
     if (firebaseConfig.apiKey.includes("DummyKey")) {
         showError('authError', 
@@ -591,3 +654,4 @@ service cloud.firestore {
 </script>
 </body>
 </html>
+[file content end]
